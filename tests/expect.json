@@ -1,0 +1,14 @@
+{
+  "categoryName": "测试分类",
+  "categoryUpdated": "测试分类-已改",
+  "todoTitle": "中文接口测试任务",
+  "todoTitlePadded": "  中文接口测试任务  ",
+  "todoDesc": "验证 UTF-8 与统一返回格式",
+  "todoTitleUpdated": "整体更新后的标题",
+  "renamedCategory": "改名后的分类",
+  "seedCategory": "课程学习",
+  "createOk": "创建成功",
+  "updateOk": "更新成功",
+  "deleteOk": "删除成功",
+  "keyword": "实验"
+}

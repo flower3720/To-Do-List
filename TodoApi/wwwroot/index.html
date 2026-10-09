@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>待办事项管理系统</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; padding: 32px 16px;
+      font-family: "Microsoft YaHei", system-ui, -apple-system, sans-serif;
+      background: #f4f6fa; color: #1f2430;
+    }
+    .wrap { max-width: 920px; margin: 0 auto; }
+    h1 { font-size: 24px; margin: 0 0 4px; }
+    .sub { color: #6b7280; font-size: 13px; margin-bottom: 20px; }
+    .sub a { color: #2563eb; }
+    .card { background: #fff; border-radius: 10px; padding: 16px; box-shadow: 0 1px 3px rgba(0,0,0,.08); margin-bottom: 16px; }
+    .stats { display: flex; gap: 12px; flex-wrap: wrap; }
+    .stat { flex: 1 1 110px; background: #eef2ff; border-radius: 8px; padding: 10px 12px; }
+    .stat b { display: block; font-size: 20px; color: #1d4ed8; }
+    .stat span { font-size: 12px; color: #4b5563; }
+    form { display: flex; gap: 8px; flex-wrap: wrap; }
+    input, select, button { font: inherit; padding: 8px 10px; border-radius: 6px; border: 1px solid #d1d5db; background: #fff; }
+    input[type=text] { flex: 1 1 220px; }
+    button { background: #2563eb; color: #fff; border: none; cursor: pointer; }
+    button:hover { background: #1d4ed8; }
+    .filters { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 12px; }
+    .filters label { font-size: 13px; color: #4b5563; }
+    ul { list-style: none; padding: 0; margin: 0; }
+    li { display: flex; align-items: center; gap: 10px; padding: 10px 4px; border-bottom: 1px solid #f0f2f6; }
+    li:last-child { border-bottom: none; }
+    li.done .title { text-decoration: line-through; color: #9ca3af; }
+    .title { flex: 1; }
+    .meta { font-size: 12px; color: #6b7280; }
+    .meta.overdue { color: #b91c1c; font-weight: 600; }
+    .tag { font-size: 12px; padding: 2px 8px; border-radius: 999px; background: #e5e7eb; color: #374151; white-space: nowrap; }
+    .tag.high { background: #fee2e2; color: #b91c1c; }
+    .tag.medium { background: #fef3c7; color: #92400e; }
+    .tag.low { background: #dcfce7; color: #166534; }
+    .tag.cat { background: #e0e7ff; color: #3730a3; }
+    .del { background: #fff; color: #b91c1c; border: 1px solid #fecaca; }
+    .del:hover { background: #fef2f2; }
+    .empty { color: #9ca3af; text-align: center; padding: 24px 0; }
+    .pager { display: flex; gap: 10px; align-items: center; justify-content: center; margin-top: 14px; font-size: 13px; color: #4b5563; }
+    .pager button { padding: 5px 12px; }
+    .pager button:disabled { background: #e5e7eb; color: #9ca3af; cursor: not-allowed; }
+    .toast { position: fixed; top: 16px; right: 16px; padding: 10px 16px; border-radius: 8px; color: #fff; font-size: 14px; opacity: 0; transition: opacity .25s; pointer-events: none; z-index: 99; }
+    .toast.show { opacity: 1; }
+    .toast.ok { background: #16a34a; }
+    .toast.err { background: #dc2626; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <h1>待办事项管理系统</h1>
+  <p class="sub">
+    课程设计演示页面 · 接口文档见 <a href="/swagger">/swagger</a> · 所有接口返回统一 ApiResult 格式
+  </p>
+
+  <div class="card">
+    <div class="stats" id="stats"></div>
+  </div>
+
+  <div class="card">
+    <form id="createForm">
+      <input type="text" id="title" placeholder="输入待办事项标题…" maxlength="100" required />
+      <select id="category"></select>
+      <select id="priority">
+        <option value="0">低</option>
+        <option value="1" selected>中</option>
+        <option value="2">高</option>
+      </select>
+      <button type="submit">添加</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <div class="filters">
+      <label>状态</label>
+      <select id="fCompleted">
+        <option value="">全部</option>
+        <option value="false">未完成</option>
+        <option value="true">已完成</option>
+      </select>
+      <label>分类</label>
+      <select id="fCategory"><option value="">全部分类</option></select>
+      <label>排序</label>
+      <select id="fSort">
+        <option value="createdAt">创建时间</option>
+        <option value="dueDate">截止时间</option>
+        <option value="priority">优先级</option>
+        <option value="title">标题</option>
+      </select>
+    </div>
+    <ul id="list"><li class="empty">加载中…</li></ul>
+    <div class="pager">
+      <button id="prev" type="button">上一页</button>
+      <span id="pageInfo"></span>
+      <button id="next" type="button">下一页</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  const PAGE_SIZE = 5;
+  let page = 1;
+  let totalPages = 1;
+  let categories = [];
+
+  const priorityClass = { 0: 'low', 1: 'medium', 2: 'high' };
+
+  // 统一调用后端：解包 ApiResult，code !== 0 时抛出错误
+  async function api(path, options) {
+    const res = await fetch(path, options);
+    let body = null;
+    try { body = await res.json(); } catch (e) { /* 无响应体 */ }
+
+    if (!res.ok || !body || body.code !== 0) {
+      const msg = (body && body.message) || ('请求失败，HTTP ' + res.status);
+      throw new Error(msg);
+    }
+    return body.data;
+  }
+
+  function toast(message, ok = true) {
+    const el = document.getElementById('toast');
+    el.textContent = message;
+    el.className = 'toast show ' + (ok ? 'ok' : 'err');
+    setTimeout(() => { el.className = 'toast'; }, 2600);
+  }
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  async function loadStats() {
+    try {
+      const s = await api('/api/todos/stats');
+      document.getElementById('stats').innerHTML = `
+        <div class="stat"><b>${s.total}</b><span>全部</span></div>
+        <div class="stat"><b>${s.active}</b><span>未完成</span></div>
+        <div class="stat"><b>${s.completed}</b><span>已完成</span></div>
+        <div class="stat"><b>${s.completionRate}%</b><span>完成率</span></div>
+        <div class="stat"><b>${s.overdue}</b><span>已逾期</span></div>`;
+    } catch (e) { toast(e.message, false); }
+  }
+
+  async function loadCategories() {
+    try {
+      categories = await api('/api/categories');
+
+      document.getElementById('category').innerHTML =
+        '<option value="">未分类</option>' +
+        categories.map(c => `<option value="${c.id}">${escapeHtml(c.name)} (${c.todoCount})</option>`).join('');
+
+      document.getElementById('fCategory').innerHTML =
+        '<option value="">全部分类</option>' +
+        categories.map(c => `<option value="${c.id}">${escapeHtml(c.name)} (${c.todoCount})</option>`).join('');
+    } catch (e) { toast(e.message, false); }
+  }
+
+  async function loadList() {
+    const params = new URLSearchParams();
+    params.set('page', page);
+    params.set('pageSize', PAGE_SIZE);
+    params.set('sortBy', document.getElementById('fSort').value);
+    params.set('desc', 'true');
+
+    const completed = document.getElementById('fCompleted').value;
+    if (completed !== '') params.set('isCompleted', completed);
+    const cat = document.getElementById('fCategory').value;
+    if (cat !== '') params.set('categoryId', cat);
+
+    const ul = document.getElementById('list');
+    try {
+      const data = await api('/api/todos?' + params.toString());
+      totalPages = Math.max(1, data.totalPages);
+
+      if (!data.items.length) {
+        ul.innerHTML = '<li class="empty">暂无待办事项</li>';
+      } else {
+        ul.innerHTML = data.items.map(t => `
+          <li class="${t.isCompleted ? 'done' : ''}">
+            <input type="checkbox" ${t.isCompleted ? 'checked' : ''} onchange="toggle(${t.id}, this.checked)" />
+            <span class="title">${escapeHtml(t.title)}</span>
+            ${t.categoryName ? `<span class="tag cat">${escapeHtml(t.categoryName)}</span>` : ''}
+            <span class="tag ${priorityClass[t.priority]}">${t.priorityText}</span>
+            <span class="meta ${t.isOverdue ? 'overdue' : ''}">
+              ${t.isOverdue ? '已逾期 ' : ''}${t.dueDate ? t.dueDate.substring(0, 10) : ''}
+            </span>
+            <button class="del" onclick="remove(${t.id})">删除</button>
+          </li>`).join('');
+      }
+
+      document.getElementById('pageInfo').textContent = `第 ${data.page} / ${totalPages} 页，共 ${data.totalCount} 条`;
+      document.getElementById('prev').disabled = page <= 1;
+      document.getElementById('next').disabled = page >= totalPages;
+    } catch (e) {
+      ul.innerHTML = '<li class="empty">加载失败</li>';
+      toast(e.message, false);
+    }
+  }
+
+  async function toggle(id, isCompleted) {
+    try {
+      await api(`/api/todos/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isCompleted })
+      });
+      await refresh();
+    } catch (e) { toast(e.message, false); }
+  }
+
+  async function remove(id) {
+    try {
+      await api(`/api/todos/${id}`, { method: 'DELETE' });
+      toast('删除成功');
+      await refresh();
+    } catch (e) { toast(e.message, false); }
+  }
+
+  document.getElementById('createForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const title = document.getElementById('title').value.trim();
+    if (!title) return;
+
+    const catId = document.getElementById('category').value;
+    const payload = {
+      title,
+      priority: Number(document.getElementById('priority').value)
+    };
+    if (catId !== '') payload.categoryId = Number(catId);
+
+    try {
+      await api('/api/todos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      });
+      document.getElementById('title').value = '';
+      toast('添加成功');
+      await refresh();
+    } catch (e) { toast(e.message, false); }
+  });
+
+  document.getElementById('prev').addEventListener('click', () => { if (page > 1) { page--; loadList(); } });
+  document.getElementById('next').addEventListener('click', () => { if (page < totalPages) { page++; loadList(); } });
+  ['fCompleted', 'fCategory', 'fSort'].forEach(id =>
+    document.getElementById(id).addEventListener('change', () => { page = 1; loadList(); }));
+
+  async function refresh() {
+    await Promise.all([loadList(), loadStats(), loadCategories()]);
+  }
+
+  refresh();
+</script>
+</body>
+</html>
