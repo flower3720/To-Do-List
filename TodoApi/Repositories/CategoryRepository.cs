@@ -38,7 +38,6 @@ public class CategoryRepository : Repository<Category>, ICategoryRepository
     public async Task<Category?> GetWithItemsAsync(int id, CancellationToken cancellationToken = default)
         => await Query().Include(c => c.TodoItems).FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
 
-    // 写操作必须用带跟踪的查询：游离实体改了之后 SaveChanges 不会生成 UPDATE
     public async Task<Category?> GetForUpdateAsync(int id, CancellationToken cancellationToken = default)
         => await Set.FirstOrDefaultAsync(c => c.Id == id, cancellationToken);
 

@@ -38,7 +38,6 @@ public class TodoDbContext : DbContext
             entity.HasIndex(e => e.Priority)
                   .HasDatabaseName("IX_TodoItems_Priority");
 
-            // 一对多：一个分类对应多个待办；分类下有数据时不允许删除
             entity.HasOne(e => e.Category)
                   .WithMany(c => c.TodoItems)
                   .HasForeignKey(e => e.CategoryId)

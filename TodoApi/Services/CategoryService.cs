@@ -67,7 +67,6 @@ public class CategoryService : ICategoryService
 
     public async Task<CategoryResponse> UpdateAsync(int id, CategoryRequest request, CancellationToken cancellationToken = default)
     {
-        // 写操作要用带跟踪的查询，否则 SaveChanges 不会更新数据
         var category = await _categoryRepository.GetForUpdateAsync(id, cancellationToken);
         if (category is null)
         {
@@ -99,7 +98,6 @@ public class CategoryService : ICategoryService
             throw NotFoundException.For("分类", id);
         }
 
-        // 分类下还有待办时不允许删除
         if (await _categoryRepository.HasTodoItemsAsync(id, cancellationToken))
         {
             throw new ConflictException($"分类“{category.Name}”下仍有待办事项，请先移除或转移后再删除");

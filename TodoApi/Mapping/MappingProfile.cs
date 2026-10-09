@@ -9,7 +9,6 @@ public class MappingProfile : Profile
 {
     public MappingProfile()
     {
-        // 请求 DTO -> 实体，只映射允许客户端提交的字段
         CreateMap<TodoCreateRequest, TodoItem>()
             .ForMember(d => d.Title, opt => opt.MapFrom(s => s.Title.Trim()))
             .ForMember(d => d.Description, opt => opt.MapFrom(s =>
@@ -29,9 +28,6 @@ public class MappingProfile : Profile
             .ForMember(d => d.UpdatedAt, opt => opt.Ignore())
             .ForMember(d => d.Category, opt => opt.Ignore());
 
-        // PATCH 由服务层逐字段判断后赋值，这里不做整体映射
-
-        // 实体 -> 响应 DTO
         CreateMap<TodoItem, TodoResponse>()
             .ForMember(d => d.Priority, opt => opt.MapFrom(s => (int)s.Priority))
             .ForMember(d => d.PriorityText, opt => opt.MapFrom(s => GetPriorityText(s.Priority)))

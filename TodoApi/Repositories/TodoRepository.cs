@@ -77,7 +77,6 @@ public class TodoRepository : Repository<TodoItem>, ITodoRepository
         };
     }
 
-    // 只读查询，不能开启跟踪，否则分类改名后会读到跟踪器缓存的旧名称
     public async Task<TodoItem?> GetWithCategoryAsync(int id, CancellationToken cancellationToken = default)
         => await Query().Include(t => t.Category).FirstOrDefaultAsync(t => t.Id == id, cancellationToken);
 

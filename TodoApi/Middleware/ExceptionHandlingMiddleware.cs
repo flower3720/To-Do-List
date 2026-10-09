@@ -23,7 +23,6 @@ public class ExceptionHandlingMiddleware
         }
         catch (AppException ex)
         {
-            // 业务异常：按异常自带的状态码返回
             _logger.LogWarning(ex,
                 "业务异常 | {Method} {Path} | Code={Code} | Message={Message}",
                 context.Request.Method, context.Request.Path, ex.Code, ex.Message);
@@ -32,13 +31,11 @@ public class ExceptionHandlingMiddleware
         }
         catch (OperationCanceledException) when (context.RequestAborted.IsCancellationRequested)
         {
-            // 客户端断开连接，不算服务端错误
             _logger.LogInformation("请求被客户端取消 | {Method} {Path}",
                 context.Request.Method, context.Request.Path);
         }
         catch (Exception ex)
         {
-            // 未预期的异常记详细日志，对外只返回通用提示
             _logger.LogError(ex,
                 "未处理异常 | {Method} {Path}",
                 context.Request.Method, context.Request.Path);

@@ -115,7 +115,6 @@ public class TodoService : ITodoService
             await EnsureCategoryExistsAsync(request.CategoryId, cancellationToken);
         }
 
-        // 只改提交的字段
         if (request.Title is not null)
         {
             item.Title = request.Title.Trim();
@@ -158,7 +157,6 @@ public class TodoService : ITodoService
 
     public async Task<TodoResponse> DeleteAsync(int id, CancellationToken cancellationToken = default)
     {
-        // 删除要用带跟踪的查询，GetWithCategoryAsync 是无跟踪的
         var item = await _todoRepository.GetByIdAsync(id, cancellationToken);
         if (item is null)
         {
