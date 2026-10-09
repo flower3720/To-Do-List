@@ -491,3 +491,4 @@ $RECYCLE.BIN/
 tests/*.log
 tests/body.json
 tests/resp.json
+*.db
